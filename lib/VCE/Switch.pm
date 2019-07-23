@@ -15,6 +15,7 @@ use GRNOC::WebService::Regex;
 use VCE::Database::Connection;
 use VCE::Device;
 use VCE::Device::Brocade::MLXe::5_8_0;
+use VCE::Device::JUNOS::MX::17;
 use VCE::NetworkDB;
 
 has logger => (is => 'rwp');
@@ -165,6 +166,30 @@ sub _connect_to_device{
             $self->logger->error( "No supported Brocade module for devices of type " . $self->type );
             return;
         }
+    }elsif($self->vendor eq 'JUNOS'){
+	if($self->type eq 'MX'){
+	    if($self->version eq '17'){
+		my $dev = VCE::Device::JUNOS::MX::17->new( username => $self->username,
+							   password => $self->password,
+							   hostname => $self->hostname,
+							   port => $self->port);
+		$self->_set_device($dev);
+		$dev->connect();
+		if($dev->connected){
+		    $self->logger->debug( "Successfully connected to device!" );
+                    return 1;
+                }else{
+                    $self->logger->error( "Error connecting to device");
+                    return;
+                }
+	    }else{
+		$self->logger->error("No supported JUNOS MX module for version " . $self->version );
+		return;
+	    }
+	}else{
+	    $self->logger->error("No supported JUNOS module for device of type " . $self->type );
+	    return;
+	}
     }else{
         $self->logger->error( "No supported vendor of type " . $self->vendor );
         return;
@@ -662,7 +687,7 @@ sub _gather_operational_status{
 
     foreach my $name (keys %{$interfaces_state}) {
         if (defined $ifaces->{$name}) {
-            $self->logger->info('Updating info on interface');
+            $self->logger->info('Updating info on interface: ' . Dumper($interfaces_state->{$name}));
             $self->db->update_interface(
                 id          => $ifaces->{$name}->{id},
                 admin_up    => $interfaces_state->{$name}->{admin_status},
